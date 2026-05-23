@@ -1,0 +1,96 @@
+name: Auto Update
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: auto-update
+  cancel-in-progress: true
+
+env:
+  DOWNLOAD_LOCATOR: "https://www.betterbird.eu/downloads/getloc.php?os=linux&lang=en-US&version=release"
+  TAGS_API: "https://api.github.com/repos/Betterbird/thunderbird-patches/tags?per_page=100"
+  
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get latest version
+        id: check
+        run: |
+          API_RESPONSE=$(curl -sL "${DOWNLOAD_LOCATOR}")
+          VERSION=$(echo "$API_RESPONSE" | grep -oP 'betterbird-\K[\d.]+esr-bb\d{2}(?=\.en-US\.linux-x86_64\.tar\.xz)')
+          CURRENT=$(grep 'version =' package.nix | grep -oP '[\d.]+esr-bb\d{2}')
+
+          echo "current=$CURRENT" >> $GITHUB_OUTPUT
+          echo "latest=$VERSION" >> $GITHUB_OUTPUT
+
+          if [ "$VERSIOIN" != "$CURRENT" ]; then
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+          else
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update Betterbird version and hash
+        id: update
+        if: steps.check.outputs.needs_update == 'true'
+        run: |
+          VERSION="${{ steps.check.outputs.latest }}"
+
+          # Get new hash
+          HASH=$(nix-prefetch-url "https://www.betterbird.eu/downloads/LinuxArchive/betterbird-${VERSION}.en-US.linux-x86_64.tar.xz" 2>/dev/null)
+          SRI_HASH=$(nix hash convert --to sri --hash-algo sha256 "$HASH")
+
+          # Validate hash
+          if [[ ! "$SRI_HASH" =~ ^sha256- ]]; then
+            echo "ERROR: Invalid SRI hash: $SRI_HASH"
+            exit 1
+          fi
+
+          echo "New hash: $SRI_HASH" >> $GITHUB_OUTPUT
+
+          # Update package.nix version
+          sed -i "s/version = \"[^\"]*\"/version = \"$VERSION\"/" package.nix
+
+          # Update package.nix hash
+          sed -i "s/hash = \"[^\"]*\"/hash = \"$SRI_HASH\"/" package.nix
+
+          # Show git diff for debugging
+          git diff package.nix
+
+      - name: Test build
+        if: steps.check.outputs.needs_update == 'true'
+        run: |
+          nix build .#betterbird --accept-flake-config --impure
+
+      - name: Commit and push update
+        if: steps.check.outputs.needs_update == 'true'
+        env:
+          VERSION: ${{ steps.check.outputs.latest }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.nix
+          git commit -m "Update Betterbird to ${VERSION}"
+          git push
+
+      - name: Create release
+        if: steps.check.outputs.needs_update == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ steps.check.outputs.latest }}" \
+            --title "betterbird v${{ steps.check.outputs.latest }}"
+            --notes "Updated Betterbird from ${{ steps.check.outputs.current }} to ${{ steps.check.outputs.latest }}"
