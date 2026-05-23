@@ -9,11 +9,11 @@
   }:
   stdenvNoCC.mkDerivation (finalAttrs: {
     pname = "betterbird";
-    version = "140.10.1esr-bb22";
+    version = "140.11.0esr-bb23";
 
     src = fetchurl {
       url = "https://www.betterbird.eu/downloads/LinuxArchive/betterbird-${finalAttrs.version}.en-US.linux-x86_64.tar.xz";
-      hash = "sha256-ZiRxZqayLy5zRrABV2l1ssIHiElOHPCEr0P5Q4hA/34=";
+      hash = "sha256-f5feH3Yj1XsKTaKJyEGJ3zASrwKTulFNDoowtaLYSyU=";
     };
 
     nativeBuildInputs = [
