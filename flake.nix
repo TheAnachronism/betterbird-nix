@@ -5,17 +5,15 @@
   outputs = { self, nixpkgs }:
     let
       system = "x86_64-linux";
-      pkgs = import nixpkgs {
-        inherit system;
-      };
+      pkgs = nixpkgs.legacyPackages.${system};
     in {
       packages.${system} = {
-        default = pkgs.callPackage ./package.nix {};
-        betterbird = self.packages.${system}.default;
+        betterbird = pkgs.callPackage ./package.nix {};
+        default = self.packages.${system}.betterbird;
       };
 
       overlays.default = final: prev: {
-        betterbird = prev.callPackage ./package.nix {};
+        betterbird = final.callPackage ./package.nix {};
       };
     };
 }

@@ -7,13 +7,16 @@
   wrapGAppsHook3,
   alsa-lib,
   }:
+  let
+    sourceInfo = builtins.fromJSON (builtins.readFile ./sources.json);
+  in
   stdenvNoCC.mkDerivation (finalAttrs: {
     pname = "betterbird";
-    version = "140.11.0esr-bb23";
+    version = sourceInfo.version;
 
     src = fetchurl {
       url = "https://www.betterbird.eu/downloads/LinuxArchive/betterbird-${finalAttrs.version}.en-US.linux-x86_64.tar.xz";
-      hash = "sha256-f5feH3Yj1XsKTaKJyEGJ3zASrwKTulFNDoowtaLYSyU=";
+      hash = sourceInfo.hash;
     };
 
     nativeBuildInputs = [

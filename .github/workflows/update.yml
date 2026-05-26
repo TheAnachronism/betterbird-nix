@@ -32,7 +32,7 @@ jobs:
         run: |
           API_RESPONSE=$(curl -sL "${DOWNLOAD_LOCATOR}")
           VERSION=$(echo "$API_RESPONSE" | grep -oP 'betterbird-\K[\d.]+esr-bb\d{2}(?=\.en-US\.linux-x86_64\.tar\.xz)')
-          CURRENT=$(grep 'version =' package.nix | grep -oP '[\d.]+esr-bb\d{2}')
+          CURRENT=$(jq -r '.version' sources.json)
 
           echo "current=$CURRENT" >> $GITHUB_OUTPUT
           echo "latest=$VERSION" >> $GITHUB_OUTPUT
@@ -61,14 +61,12 @@ jobs:
 
           echo "New hash: $SRI_HASH" >> $GITHUB_OUTPUT
 
-          # Update package.nix version
-          sed -i "s/version = \"[^\"]*\"/version = \"$VERSION\"/" package.nix
-
-          # Update package.nix hash
-          sed -i "s/hash = \"[^\"]*\"/hash = \"$SRI_HASH\"/" package.nix
+          jq --arg version "$VERSION" --arg hash "$SRI_HASH" \
+            '.version = $version | .hash = $hash' sources.json > sources.json.tmp
+          mv sources.json.tmp sources.json
 
           # Show git diff for debugging
-          git diff package.nix
+          git diff sources.json
 
       - name: Test build
         if: steps.check.outputs.needs_update == 'true'
@@ -82,7 +80,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add package.nix
+          git add sources.json
           git commit -m "Update Betterbird to ${VERSION}"
           git push
 
