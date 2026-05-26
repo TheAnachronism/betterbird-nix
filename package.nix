@@ -2,13 +2,37 @@
   lib,
   stdenvNoCC,
   autoPatchelfHook,
+  copyDesktopItems,
   fetchurl,
+  makeDesktopItem,
   patchelfUnstable,
   wrapGAppsHook3,
   alsa-lib,
   }:
   let
     sourceInfo = builtins.fromJSON (builtins.readFile ./sources.json);
+
+    desktopItem = makeDesktopItem {
+      name = "betterbird";
+      desktopName = "Betterbird";
+      genericName = "Mail Client";
+      comment = "Fine-tuned version of Mozilla Thunderbird (binary build)";
+      exec = "betterbird %u";
+      terminal = false;
+      icon = "betterbird";
+      categories = [ "Network" "Email" "Office" ];
+      keywords = [ "email" "mail" "news" "feed" "rss" "calendar" ];
+      mimeTypes = [
+        "message/rfc822"
+        "x-scheme-handler/mailto"
+        "application/x-xpinstall"
+      ];
+      startupWMClass = "Betterbird";
+      startupNotify = true;
+      extraConfig = {
+        "X-GNOME-UsesNotifications" = "true";
+      };
+    };
   in
   stdenvNoCC.mkDerivation (finalAttrs: {
     pname = "betterbird";
@@ -21,9 +45,12 @@
 
     nativeBuildInputs = [
       autoPatchelfHook
+      copyDesktopItems
       patchelfUnstable
       wrapGAppsHook3
     ];
+
+    desktopItems = [ desktopItem ];
 
     buildInputs = [
       alsa-lib
@@ -50,25 +77,6 @@
 
       # wrapThunderbird expects "$out/lib" instead of "$out/usr/lib"
       ln -s "$out/usr/lib" "$out/lib"
-
-      mkdir -p "$out/share/applications"
-      cat > "$out/share/applications/betterbird.desktop" <<EOF
-      [Desktop Entry]
-      Version=1.0
-      Name=Betterbird
-      GenericName=Mail Client
-      Comment=Fine-tuned version of Mozilla Thunderbird (binary build)
-      Exec=betterbird %u
-      Terminal=false
-      Type=Application
-      Icon=betterbird
-      Categories=Network;Email;Office;
-      Keywords=email;mail;news;feed;rss;calendar;
-      MimeType=message/rfc822;x-scheme-handler/mailto;application/x-xpinstall;
-      StartupWMClass=Betterbird
-      StartupNotify=true
-      X-GNOME-UsesNotifications=true
-      EOF
 
       icon_src_dir="$appdir/chrome/icons/default"
       if [ -d "$icon_src_dir" ]; then
