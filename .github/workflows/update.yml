@@ -31,7 +31,7 @@ jobs:
         id: check
         run: |
           API_RESPONSE=$(curl -sL "${DOWNLOAD_LOCATOR}")
-          VERSION=$(echo "$API_RESPONSE" | grep -oP 'betterbird-\K[\d.]+esr-bb\d{2}(?=\.en-US\.linux-x86_64\.tar\.xz)')
+          VERSION=$(echo "$API_RESPONSE" | grep -oP 'betterbird-\K[\d.]+esr-bb\d+(?=\.en-US\.linux-x86_64\.tar\.xz)')
           CURRENT=$(jq -r '.version' sources.json)
 
           echo "current=$CURRENT" >> $GITHUB_OUTPUT
